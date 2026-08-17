@@ -59,9 +59,11 @@ describe('api/routes/dashboardRouter.js', () => {
   afterEach(async () => {
     if (app) await app.close();
     app = null;
+    vi.restoreAllMocks();
   });
 
   it('derives lastRun from the most recent accessible job for a regular user', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(5_400_001);
     state.jobs = [
       { id: 'a', userId: 'u1', shared_with_user: [], lastRunAt: 1000 },
       { id: 'b', userId: 'u1', shared_with_user: [], lastRunAt: 5000 },
@@ -73,7 +75,7 @@ describe('api/routes/dashboardRouter.js', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.general.lastRun).toBe(5000);
-    expect(body.general.nextRun).toBe(5000 + 30 * 60000);
+    expect(body.general.nextRun).toBe(7_200_000);
   });
 
   it('includes shared jobs in the lastRun calculation', async () => {
@@ -99,7 +101,8 @@ describe('api/routes/dashboardRouter.js', () => {
     expect(res.json().general.lastRun).toBe(7000);
   });
 
-  it('returns null lastRun and 0 nextRun when no accessible job has ever run', async () => {
+  it('returns the next clock boundary even when no accessible job has ever run', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(5_400_001);
     state.jobs = [
       { id: 'a', userId: 'u1', shared_with_user: [], lastRunAt: null },
       { id: 'b', userId: 'someone-else', shared_with_user: [], lastRunAt: 9999 },
@@ -109,6 +112,6 @@ describe('api/routes/dashboardRouter.js', () => {
     const res = await app.inject({ method: 'GET', url: '/api/dashboard/' });
     const body = res.json();
     expect(body.general.lastRun).toBeNull();
-    expect(body.general.nextRun).toBe(0);
+    expect(body.general.nextRun).toBe(7_200_000);
   });
 });

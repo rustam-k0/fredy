@@ -40,6 +40,7 @@ import {
 } from '@douyinfe/semi-icons';
 import maplibregl from '../../components/map/maplibre.js';
 import MapCanvas, { HOME_MARKER_COLOR } from '../../components/map/Map.jsx';
+import { useProviderCountries } from '../../hooks/useProviderCountries.js';
 import no_image from '../../assets/no_image.png';
 import * as timeService from '../../services/time/timeService.js';
 import { formatEuroPrice } from '../../services/price/priceService.js';
@@ -56,6 +57,7 @@ import StatusControl from '../../components/listings/StatusControl.jsx';
 import ListingFinanceCard from './components/ListingFinanceCard.jsx';
 import PriceHistoryChart from './components/PriceHistoryChart.jsx';
 import NearbyStops from '../../components/transit/NearbyStops.jsx';
+import ConnectivityCard from '../../components/connectivity/ConnectivityCard.jsx';
 import TravelTimes from '../../components/transit/TravelTimes.jsx';
 import AddressEditor from './components/AddressEditor.jsx';
 import './ListingDetail.less';
@@ -90,9 +92,13 @@ export default function ListingDetail() {
   const { isComplete: buyComplete, rentComplete, thresholds: financeThresholds } = useFinanceProfile();
   const listing = useSelector((state) => state.listingsData.currentListing);
   const userSettings = useSelector((state) => state.userSettings.settings);
+  const connectivityEnabled = useSelector((state) => state.generalSettings.settings?.connectivityEnabled === true);
   const homeAddresses = useMemo(() => getAddresses(userSettings), [userSettings]);
   const listingDeletionPref = userSettings?.listing_deletion_preference;
   const defaultDeleteType = listingDeletionPref?.hardDelete ? 'hard' : 'soft';
+  // The listing does name a provider, but the pin can be dragged anywhere the user's own searches
+  // reach, so the map takes the same account-wide union the listings map does.
+  const countries = useProviderCountries();
   const map = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -510,7 +516,12 @@ export default function ListingDetail() {
       <Headline
         text={listing?.title || t('listing.detail.defaultTitle')}
         actions={
-          <Button icon={<IconArrowLeft />} onClick={() => navigate(-1)} theme="borderless" style={{ color: '#909090' }}>
+          <Button
+            icon={<IconArrowLeft />}
+            onClick={() => navigate(-1)}
+            theme="borderless"
+            style={{ color: 'var(--f-muted)' }}
+          >
             {t('listing.detail.back')}
           </Button>
         }
@@ -636,6 +647,7 @@ export default function ListingDetail() {
                   {/* Public transport on by default: the first question about any flat is how to
                       get out of it, and the answer should already be on screen. */}
                   <MapCanvas
+                    countries={countries}
                     initialCenter={mapCenter}
                     initialZoom={hasGeo ? 14 : 10}
                     defaultShowTransit
@@ -809,6 +821,21 @@ export default function ListingDetail() {
                       </Text>
                     )}
                   </div>
+                </>
+              )}
+
+              {/* Under the travel times because it belongs to the same half of the page: both are
+                  things Fredy worked out about the address rather than things the portal said about
+                  the flat, and somebody weighing up a place reads them together. Only shown once
+                  the operator has the enrichment on - with it off nothing is ever stored, and an
+                  empty card would read as a fault rather than a setting. */}
+              {hasGeo && connectivityEnabled && (
+                <>
+                  <Divider margin="1.5rem" />
+                  <Text strong style={{ display: 'block', marginBottom: '0.5rem' }}>
+                    {t('connectivity.title')}
+                  </Text>
+                  <ConnectivityCard connectivity={listing.connectivity} />
                 </>
               )}
             </div>

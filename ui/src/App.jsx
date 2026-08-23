@@ -12,9 +12,11 @@ import PreferencesPage from './views/settings/pages/PreferencesPage';
 import TravelTimePage from './views/settings/pages/TravelTimePage';
 import ListingDetailsPage from './views/settings/pages/ListingDetailsPage';
 import NotificationsPage from './views/settings/pages/NotificationsPage';
+import ConnectionsPage from './views/settings/pages/ConnectionsPage';
 import AdminLayout from './views/admin/AdminLayout';
 import SystemPage from './views/admin/pages/SystemPage';
 import ExecutionPage from './views/admin/pages/ExecutionPage';
+import ConnectivityPage from './views/admin/pages/ConnectivityPage';
 import BackupPage from './views/admin/pages/BackupPage';
 import DebugPage from './views/admin/pages/DebugPage';
 import JobMutation from './views/jobs/mutation/JobMutation';
@@ -43,6 +45,7 @@ import { I18nProvider, availableLanguages } from './services/i18n/i18n.jsx';
 import DebugLoggingBanner from './components/debug/DebugLoggingBanner.jsx';
 import DemoBanner from './components/demo/DemoBanner.jsx';
 import { LEGACY_REDIRECTS } from './services/routes/legacyRedirects.js';
+import { applyTheme, normalizeTheme } from './services/theme/theme.js';
 
 const semiLocaleModules = import.meta.glob('/node_modules/@douyinfe/semi-ui-19/lib/es/locale/source/*.js', {
   eager: true,
@@ -89,8 +92,18 @@ export default function FredyApp() {
   const versionUpdate = useSelector((state) => state.versionUpdate.versionUpdate);
   const settings = useSelector((state) => state.generalSettings.settings);
   const language = useSelector((state) => state.userSettings.settings.language);
+  /*
+   * Straight off the user's stored settings, with nothing cached in front of it. Until those have
+   * arrived - on the login screen, and for the moment a cold load spends fetching them - this is
+   * the default, which is also what index.html ships on the body, so nothing repaints.
+   */
+  const theme = normalizeTheme(useSelector((state) => state.userSettings.settings.theme));
 
   useBrowserNotifications();
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     // Already filled for this user: nothing to do. Checked against the ref, which is only set
@@ -182,7 +195,10 @@ export default function FredyApp() {
             <Route path="*" element={<Navigate state={{ from: location }} to="/login" replace />} />
           </Routes>
         ) : (
-          <Layout className="app">
+          // Keyed on the theme so everything below remounts when it changes. The stylesheets follow the
+          // body attribute on their own, but the charts paint onto a canvas from colours they read once
+          // per render, and a canvas keeps whatever it was last painted with until something redraws it.
+          <Layout className="app" key={theme}>
             <Sider>
               <Navigation isAdmin={isAdmin()} />
             </Sider>
@@ -206,13 +222,14 @@ export default function FredyApp() {
 
                   {/* Settings that belong to whoever is signed in. No guard: they are theirs.
                       One entry in the sidebar, and the tabs below the heading are the only place
-                      these four pages are named. */}
+                      these five pages are named. */}
                   <Route path="/settings" element={<SettingsLayout />}>
                     <Route index element={<Navigate to="/settings/preferences" replace />} />
                     <Route path="preferences" element={<PreferencesPage />} />
                     <Route path="travel-time" element={<TravelTimePage />} />
                     <Route path="listings" element={<ListingDetailsPage />} />
                     <Route path="notifications" element={<NotificationsPage />} />
+                    <Route path="connections" element={<ConnectionsPage />} />
                   </Route>
 
                   {/* Settings that belong to the instance. Guarded once, at the parent, so a new
@@ -228,6 +245,7 @@ export default function FredyApp() {
                     <Route index element={<Navigate to="/admin/system" replace />} />
                     <Route path="system" element={<SystemPage />} />
                     <Route path="execution" element={<ExecutionPage />} />
+                    <Route path="connectivity" element={<ConnectivityPage />} />
                     <Route path="users" element={<Users />} />
                     <Route path="users/new" element={<UserMutator />} />
                     <Route path="users/edit/:userId" element={<UserMutator />} />

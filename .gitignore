@@ -3,6 +3,7 @@ ui/public/
 db/*.json
 db/*.db*
 db/backups/
+outputs/db-backups/
 npm-debug.log
 .DS_Store
 .idea
